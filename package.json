@@ -1,0 +1,18 @@
+{
+    "name": "@volar/language-hub",
+    "version": "0.0.0",
+    "files": [
+        "index.js",
+        "index.d.ts"
+    ],
+    "scripts": {
+        "build": "tsc"
+    },
+    "devDependencies": {
+        "@types/node": "latest",
+        "@volar/language-core": "latest",
+        "@vue-vine/language-service": "latest",
+        "@vue/language-core": "latest",
+        "typescript": "latest"
+    }
+}
