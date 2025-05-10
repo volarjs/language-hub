@@ -1,25 +1,25 @@
-import { LanguagePlugin } from '@volar/language-core';
+import type { LanguagePlugin } from '@volar/language-core';
+
 import path = require('node:path');
 
-export function createVuePlugin(ts: typeof import('typescript'), tsconfig: string): LanguagePlugin<string> {
+export function createVuePlugin(ts: typeof import('typescript'), tsconfig: string): LanguagePlugin<string>
+export function createVuePlugin(ts: typeof import('typescript'), compilerOptions: object, rootDir: string): LanguagePlugin<string>
+export function createVuePlugin(ts: typeof import('typescript'), tsconfigOrCompilerOptions: string | object, rootDir = path.dirname(tsconfigOrCompilerOptions as string)): LanguagePlugin<string> {
 	let vue: typeof import('@vue/language-core');
 	let vueTscPkgPath: string | undefined;
 
-	if (findPackageJson(ts, tsconfig, '@vue/language-core')) {
+	if (findPackageJsonByDir(ts, rootDir, '@vue/language-core')) {
 		vue = require('@vue/language-core');
-	} else if (vueTscPkgPath = findPackageJson(ts, tsconfig, 'vue-tsc')) {
+	} else if (vueTscPkgPath = findPackageJsonByDir(ts, rootDir, 'vue-tsc')) {
 		const vueTscPath = path.dirname(vueTscPkgPath);
 		vue = require(require.resolve('@vue/language-core', { paths: [vueTscPath] }));
 	} else {
-		const pkg = ts.findConfigFile(path.dirname(tsconfig), ts.sys.fileExists, 'package.json');
-		if (pkg) {
-			throw new Error('Please install @vue/language-core or vue-tsc to ' + path.relative(process.cwd(), pkg));
-		} else {
-			throw new Error('Please install @vue/language-core or vue-tsc for ' + path.relative(process.cwd(), tsconfig));
-		}
+		throw new Error('Missing @vue/language-core or vue-tsc.');
 	}
 
-	const commonLine = vue.createParsedCommandLine(ts, ts.sys, tsconfig);
+	const commonLine = typeof tsconfigOrCompilerOptions === 'string'
+		? vue.createParsedCommandLine(ts, ts.sys, tsconfigOrCompilerOptions)
+		: vue.createParsedCommandLineByJson(ts, ts.sys, rootDir, tsconfigOrCompilerOptions);
 
 	return vue.createVueLanguagePlugin<string>(
 		ts,
@@ -30,29 +30,26 @@ export function createVuePlugin(ts: typeof import('typescript'), tsconfig: strin
 }
 
 export function createVueVinePlugins(ts: typeof import('typescript'), tsconfig: string): LanguagePlugin<string>[] {
+	const rootDir = path.dirname(tsconfig);
+
 	let vue: typeof import('@vue/language-core');
 	let vueVine: typeof import('@vue-vine/language-service');
 	let pkgPath: string | undefined;
 
-	if (pkgPath = findPackageJson(ts, tsconfig, '@vue-vine/language-service')) {
+	if (pkgPath = findPackageJsonByDir(ts, rootDir, '@vue-vine/language-service')) {
 		const pkgDir = path.dirname(pkgPath);
 		vueVine = require('@vue-vine/language-service');
 		vue = require(require.resolve('@vue/language-core', { paths: [pkgDir] }));
-	} else if (pkgPath = findPackageJson(ts, tsconfig, 'vue-vine-tsc')) {
+	} else if (pkgPath = findPackageJsonByDir(ts, rootDir, 'vue-vine-tsc')) {
 		const pkgDir = path.dirname(pkgPath);
 		vue = require(require.resolve('@vue/language-core', { paths: [pkgDir] }));
 		vueVine = require(require.resolve('@vue/language-core', { paths: [pkgDir] }));
 	} else {
-		const pkg = ts.findConfigFile(path.dirname(tsconfig), ts.sys.fileExists, 'package.json');
-		if (pkg) {
-			throw new Error('Please install @vue-vine/language-service or vue-vine-tsc to ' + path.relative(process.cwd(), pkg));
-		} else {
-			throw new Error('Please install @vue-vine/language-service or vue-vine-tsc for ' + path.relative(process.cwd(), tsconfig));
-		}
+		throw new Error('Missing @vue-vine/language-service or vue-vine-tsc.');
 	}
 
 	const commonLine = vue.createParsedCommandLine(ts, ts.sys, tsconfig, true);
-	const globalTypesFilePath = vueVine.setupGlobalTypes(path.dirname(tsconfig), commonLine.vueOptions as any, ts.sys);
+	const globalTypesFilePath = vueVine.setupGlobalTypes(rootDir, commonLine.vueOptions as any, ts.sys);
 	if (globalTypesFilePath) {
 		commonLine.vueOptions.__setupedGlobalTypes = {
 			absolutePath: globalTypesFilePath,
@@ -77,59 +74,50 @@ export function createVueVinePlugins(ts: typeof import('typescript'), tsconfig: 
 	];
 }
 
-export async function createMdxPlugin(ts: typeof import('typescript'), tsconfig: string): Promise<LanguagePlugin<string>> {
+export async function createMdxPlugin(_ts: typeof import('typescript'), tsconfig: string): Promise<LanguagePlugin<string>> {
+	const rootDir = path.dirname(tsconfig);
+
 	let mdx: any;
 
 	try {
-		mdx = await import(require.resolve('@mdx-js/language-service', { paths: [path.dirname(tsconfig)] }));
+		mdx = await import(require.resolve('@mdx-js/language-service', { paths: [rootDir] }));
 	} catch {
-		const pkg = ts.findConfigFile(path.dirname(tsconfig), ts.sys.fileExists, 'package.json');
-		if (pkg) {
-			throw new Error('Please install @mdx-js/language-service to ' + path.relative(process.cwd(), pkg));
-		} else {
-			throw new Error('Please install @mdx-js/language-service for ' + path.relative(process.cwd(), tsconfig));
-		}
+		throw new Error('Missing @mdx-js/language-service.');
 	}
 
 	return mdx.createMdxLanguagePlugin();
 }
 
-export function createAstroPlugin(ts: typeof import('typescript'), tsconfig: string): LanguagePlugin<string> {
+export function createAstroPlugin(_ts: typeof import('typescript'), tsconfig: string): LanguagePlugin<string> {
+	const rootDir = path.dirname(tsconfig);
+
 	let astro: any;
 
 	try {
-		astro = require(require.resolve('@astrojs/ts-plugin/dist/language.js', { paths: [path.dirname(tsconfig)] }));
+		astro = require(require.resolve('@astrojs/ts-plugin/dist/language.js', { paths: [rootDir] }));
 	} catch (err) {
-		const pkg = ts.findConfigFile(path.dirname(tsconfig), ts.sys.fileExists, 'package.json');
-		if (pkg) {
-			throw new Error('Please install @astrojs/ts-plugin to ' + path.relative(process.cwd(), pkg));
-		} else {
-			throw new Error('Please install @astrojs/ts-plugin for ' + path.relative(process.cwd(), tsconfig));
-		}
+		throw new Error('Missing @astrojs/ts-plugin.');
 	}
 
 	return astro.getLanguagePlugin();
 }
 
 export async function createTsMacroPlugins(ts: typeof import('typescript'), tsconfig: string): Promise<LanguagePlugin<string>[]> {
+	const rootDir = path.dirname(tsconfig);
+
 	let tsMacro: any;
 	let tsMacroOptions: any;
 	let tsmcPkgPath: string | undefined;
 
-	if (tsmcPkgPath = findPackageJson(ts, tsconfig, '@ts-macro/language-plugin')) {
-		tsMacro = await import(require.resolve('@ts-macro/language-plugin', { paths: [path.dirname(tsconfig)] }));
-		tsMacroOptions = require(require.resolve('@ts-macro/language-plugin/options', { paths: [path.dirname(tsconfig)] }));
-	} else if (tsmcPkgPath = findPackageJson(ts, tsconfig, '@ts-macro/tsc')) {
+	if (tsmcPkgPath = findPackageJsonByDir(ts, rootDir, '@ts-macro/language-plugin')) {
+		tsMacro = await import(require.resolve('@ts-macro/language-plugin', { paths: [rootDir] }));
+		tsMacroOptions = require(require.resolve('@ts-macro/language-plugin/options', { paths: [rootDir] }));
+	} else if (tsmcPkgPath = findPackageJsonByDir(ts, rootDir, '@ts-macro/tsc')) {
 		const tsmcPath = path.dirname(tsmcPkgPath);
 		tsMacro = require(require.resolve('@ts-macro/language-plugin', { paths: [tsmcPath] }));
 		tsMacroOptions = require(require.resolve('@ts-macro/language-plugin/options', { paths: [tsmcPath] }));
 	} else {
-		const pkg = ts.findConfigFile(path.dirname(tsconfig), ts.sys.fileExists, 'package.json');
-		if (pkg) {
-			throw new Error('Please install @ts-macro/language-plugin or @ts-macro/tsc to ' + path.relative(process.cwd(), pkg));
-		} else {
-			throw new Error('Please install @ts-macro/language-plugin or @ts-macro/tsc for ' + path.relative(process.cwd(), tsconfig));
-		}
+		throw new Error('Missing @ts-macro/language-plugin or @ts-macro/tsc.');
 	}
 
 	const compilerOptions = ts.readConfigFile(tsconfig, ts.sys.readFile).config.compilerOptions;
@@ -137,6 +125,6 @@ export async function createTsMacroPlugins(ts: typeof import('typescript'), tsco
 	return tsMacro.getLanguagePlugins(ts, compilerOptions, tsMacroOptions.getOptions(ts));
 }
 
-function findPackageJson(ts: typeof import('typescript'), tsconfig: string, pkgName: string) {
-	return ts.findConfigFile(path.dirname(tsconfig), ts.sys.fileExists, `node_modules/${pkgName}/package.json`);
+function findPackageJsonByDir(ts: typeof import('typescript'), dir: string, pkgName: string) {
+	return ts.findConfigFile(dir, ts.sys.fileExists, `node_modules/${pkgName}/package.json`);
 }
